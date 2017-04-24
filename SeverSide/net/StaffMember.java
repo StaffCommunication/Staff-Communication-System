@@ -99,9 +99,9 @@ public class StaffMember extends Thread
             @Override
             public void run()
             {
+                byte[] buff = new byte[64*1024];//64kbs
                 while(true)//read data forever
                 {
-                    byte[] buff = new byte[64*1024];//64kbs
                     try {
                         if(ipcStream.read(buff) > 0)//data read
                         {
