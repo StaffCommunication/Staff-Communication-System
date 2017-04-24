@@ -1,1 +1,1 @@
-client side (desktop application) user interface
+client side (desktop application) user interface implementation
