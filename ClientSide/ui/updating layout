@@ -1,0 +1,140 @@
+package group.project2;
+
+import javafx.application.Application;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
+import javafx.stage.Stage;
+import javafx.event.EventHandler;
+import javafx.application.Application;
+import javafx.scene.*;
+import javafx.scene.control.*;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.layout.*;
+import javafx.stage.Stage;
+
+
+public class GroupProject2 extends Application {
+    private LinkContent[] linkContent;
+
+    private final StackPane content = new StackPane();
+
+    public static void main(String[] args) {
+        launch(args);
+    }
+
+    @Override
+    public void start(Stage stage) {
+        linkContent = createLinkContent();
+
+        content.setPrefWidth(700);
+        content.setPrefHeight(500);
+        HBox.setHgrow(content, Priority.ALWAYS);
+
+        stage.setTitle("project");
+        stage.setScene(new Scene(createLayout()));
+        stage.show();
+    }
+
+    private Pane createLayout() {
+        HBox layout = new HBox(10,createNavBar(),content);
+        layout.setStyle("-fx-padding: 15; \n" +
+                            "-fx-font-size: 15;");
+
+       // layout.getStylesheets().add(
+       //         getClass().getResource("nav.css").toExternalForm()
+      //  );
+
+        return layout;
+    }
+
+    private VBox createNavBar() {
+        VBox nav = new VBox();
+        nav.setMinWidth(100);
+        nav.setStyle("-fx-background-color: burlywood, peachpuff; \n" +
+                      "-fx-background-radius: 10, 10; \n" +
+                       "-fx-background-insets: 0, 2; \n" +
+                       "-fx-font-style: italic; \n" +
+                             "-fx-padding: 10 15 15 10;");
+        
+       
+
+        for (int i = 0; i < linkContent.length; i++) {
+            Hyperlink link = createLink(
+                    linkContent[i].linkText,
+                    createContentNode(linkContent[i])
+            );
+            nav.getChildren().add(link);
+            if (i == 0) {
+                link.fire();
+            }
+        }
+
+        return nav;
+    }
+
+    private Node createContentNode(LinkContent linkContent) {
+        Label label = new Label(linkContent.contentText);
+        label.setWrapText(true);
+
+        VBox contentNode = new VBox(
+                10,
+                new ImageView(linkContent.image),
+                label
+        );
+       contentNode.setStyle("-fx-background-color: aliceblue; \n" +
+                          "-fx-padding: 15 20 20 15;\n" +
+                            " -fx-effect: dropshadow(gaussian, slategrey, 10, 0, 5, 5);  ");
+       
+       
+
+        return contentNode;
+    }
+
+    private Hyperlink createLink(final String linkText, final Node contentNode) {
+        Hyperlink link = new Hyperlink(linkText);
+        //link.setOnAction(event -> content.getChildren().setAll(contentNode));
+        link.setOnAction((event) -> {
+            content.getChildren().setAll(contentNode);
+        });
+        return link;
+    }
+    
+    private static class LinkContent {
+        final String linkText, contentText;
+        final Image image;
+
+        LinkContent(String linkText, String contentText, String imageLoc) {
+            this.linkText = linkText;
+            this.contentText = contentText;
+            this.image = new Image(imageLoc);
+        }
+    }
+
+
+    private LinkContent[] createLinkContent() {
+        return new LinkContent[] {
+                new LinkContent(
+                        "julius",
+                        "Tomorrow will be President Trump's 100th day in office. With this benchmark, we look back through history at what some of his ",
+                        "file:src/chelsea.jpg"
+                ),
+                new LinkContent(
+                        "chain",
+                        "As the television adaptation of 'American Gods' gets underway on Starz, here are a few creative highlights.",
+                        "file:src/chel.jpg"
+                ),
+                new LinkContent(
+                        "Don",
+                        "Casting JonBenét\" on Netflix this Friday, we're taking a look back at the tragic unsolved murder of the 6-year-old beauty queen that still.",
+                        "file:src/eden.jpg"
+                ),
+                new LinkContent(
+                        "joy",
+                        "It's been 25 years since a Los Angeles court acquitted four white LAPD officers over the brutal beating o.",
+                        "file:src/eden.jpg"
+                )
+        };
+    }
+}
