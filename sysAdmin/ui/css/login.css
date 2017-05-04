@@ -1,0 +1,21 @@
+
+#login-grid
+{
+    -fx-alignment: CENTER;
+    -fx-hgap: 20px;
+    -fx-vgap: 13px;
+    -fx-background: #666;
+    -fx-text-fill: #ddd;
+}
+
+#submit {
+    -fx-background-color: inherit;
+    -fx-text-fill: #ddd;
+}
+
+#submit:hover
+{
+    -fx-background-color: #222;
+    -fx-text-fill: silver;
+}
+
