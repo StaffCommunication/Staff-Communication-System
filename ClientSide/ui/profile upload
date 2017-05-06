@@ -1,0 +1,118 @@
+/**
+ * Created by chain on 4/30/2017.
+ */
+
+import javafx.application.Application;
+ import javafx.beans.property.ObjectProperty;
+import javafx.beans.property.SimpleObjectProperty;
+import javafx.geometry.Point2D;
+import javafx.scene.effect.DropShadow;
+import javafx.scene.input.MouseEvent;
+import javafx.scene.paint.Color;
+import javafx.scene.paint.ImagePattern;
+import javafx.scene.shape.Circle;
+import javafx.stage.Stage;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javafx.application.Application;
+import javafx.embed.swing.SwingFXUtils;
+import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
+import javafx.scene.Scene;
+import javafx.scene.control.Button;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.layout.VBox;
+import javafx.stage.FileChooser;
+import javafx.stage.Stage;
+import javax.imageio.ImageIO;
+
+
+public class LoadingImage extends Application {
+
+    ImageView myimage;
+
+    @Override
+    public void start(Stage primaryStage) {
+
+        Button btnLoad = new Button("Load");
+        btnLoad.setOnAction(btnLoadEventListener);
+
+
+
+
+       myimage = new ImageView();
+
+        // enable dragging:
+       ObjectProperty<Point2D> mouseAnchor = new SimpleObjectProperty<>();
+        myimage.setOnMousePressed(new EventHandler<MouseEvent>() {
+           @Override
+           public void handle(MouseEvent event) {
+               mouseAnchor.set(new Point2D(event.getSceneX(), event.getSceneY()));
+            }
+      });
+
+
+        /*
+        myimage.setOnMouseDragged(new EventHandler<MouseEvent>() {
+            @Override
+            public void handle(MouseEvent event) {
+                double deltaX = event.getSceneX() - mouseAnchor.get().getX();
+                double deltaY = event.getSceneY() - mouseAnchor.get().getY();
+                myimage.setLayoutX(myimage.getLayoutX() + deltaX);
+                myimage.setLayoutY(myimage.getLayoutY() + deltaY);
+                clip.setCenterX(clip.getCenterX() - deltaX);
+                clip.setCenterY(clip.getCenterY() - deltaY);
+                mouseAnchor.set(new Point2D(event.getSceneX(), event.getSceneY()));
+            }
+        });
+       */
+
+        VBox rootBox = new VBox();
+        rootBox.getChildren().addAll(btnLoad, myimage);
+
+        Scene scene = new Scene(rootBox, 300, 300);
+
+        primaryStage.setTitle("loading image");
+        primaryStage.setScene(scene);
+        primaryStage.show();
+    }
+
+    public static void main(String[] args) {
+        launch(args);
+    }
+
+    EventHandler<ActionEvent> btnLoadEventListener
+            = new EventHandler<ActionEvent>(){
+
+        @Override
+        public void handle(ActionEvent t) {
+            FileChooser fileChooser = new FileChooser();
+
+            //Set extension filter
+            FileChooser.ExtensionFilter extFilterJPG = new FileChooser.ExtensionFilter("JPG files (*.jpg)", "*.JPG");
+            FileChooser.ExtensionFilter extFilterPNG = new FileChooser.ExtensionFilter("PNG files (*.png)", "*.PNG");
+            fileChooser.getExtensionFilters().addAll(extFilterJPG, extFilterPNG);
+
+            //Show open file dialog
+            File file = fileChooser.showOpenDialog(null);
+
+            try {
+
+                BufferedImage bufferedImage = ImageIO.read(file);
+               //  Circle clip = new Circle(300, 200, 200);  //circle
+                //clip.setClip(bufferedImage);                                                  //add
+                Image image = SwingFXUtils.toFXImage(bufferedImage, null);
+
+                myimage.setImage(image);
+
+            } catch (IOException ex) {
+                Logger.getLogger(LoadingImage.class.getName()).log(Level.SEVERE, null, ex);
+            }
+
+        }
+    };
+}
