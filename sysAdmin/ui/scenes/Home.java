@@ -1,150 +1,145 @@
 
 package sysadmin.ui.scenes;
 
+import java.io.PipedOutputStream;
 import java.util.HashMap;
+import javafx.beans.value.ObservableValue;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.ScrollPane;
+import javafx.scene.control.SplitPane;
+import javafx.scene.control.Toggle;
+import javafx.scene.control.ToggleButton;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
-
+import javafx.scene.layout.Pane;
+import javafx.scene.layout.VBox;
 
 import sysadmin.net.Connector;
-import sysadmin.staff.ReadOnly;
+import sysadmin.ui.menu.AudioCallButton;
+import sysadmin.ui.menu.ChatButton;
+import sysadmin.ui.menu.EventsButton;
+import sysadmin.ui.menu.ExploreButton;
+import sysadmin.ui.menu.VideoCallButton;
 
 
 public class Home extends Scene
 {
     //layout manager
-    private BorderPane rootP;
+    private final SplitPane rootP;
+    private final BorderPane bPane;
     //connector
-    private Connector connector;
+    private final Connector connector;
     
-    //menu bar
-    private HBox nav;
-    //new
-    private Button nw;
-    private Button all;
-    private Button edit;
-    private Button home;
+    //side bar
+    private VBox nav;
     
-    //list of staff
-    private HashMap<String,ReadOnly> list;
-    
-    
+    //piped output streams
+    private static HashMap<String, PipedOutputStream> ipcs;
+
     //constructor
-    public Home(BorderPane p, Connector c)
+    public Home(SplitPane p)
     {
         super(p,1000,600);
         rootP = p;
-        connector = c;
+        connector = null;
+        bPane = new BorderPane();
+        nav = new VBox();
+        nav.setId("nav");
+        bPane.setId("content-pane");
+        
+        Home.ipcs = new HashMap<>();
         
         //load css file
         rootP.getStylesheets().add("sysadmin/ui/css/home.css");
         //css id
         rootP.setId("main");
+       
+        setUp();
+    }
+    
+    //set up nav basr
+    public void setUp()
+    {
+        ChatButton cb = new ChatButton(new PipedOutputStream());
+        ExploreButton xb = new ExploreButton();
+        EventsButton eb = new EventsButton();
+        VideoCallButton vb = new VideoCallButton();
+        AudioCallButton ab = new AudioCallButton();
         
-        setUpBar();
-    }
-    
-    public void initList()
-    {
-        list = new HashMap<>();
-        //create css id
-        //initialize using db
-        //the initialization below is for testing...real stuff coming soon
-        list.put("S13/21389/14",new ReadOnly
-        ("Mwendwa Reuben", "31772088","S13/21389/14","+254729764597",
-                "vrubben@outlook.com","MALE","Science","Computer Sceince"));
-        list.put("S13/20445/14",new ReadOnly
-        ("Julius Njagwa","31653221","S13/20445/14", "+254788321219","juliusng@gmail.com",
-                "MALE","Education & Community Studies","Education"));
-    }
-    
-    //set up buttons
-    public void setUpBar()
-    {
-         nav = new HBox();
-         nav.setId("nav");
-         
-         //create navigation buttons
-         nw = new Button("New");
-         edit = new Button("Edit");
-         all = new Button("View");
-         home = new Button("Home");
-         
-         //great a css class for all buttons
-         home.getStyleClass().add("b-button");
-         nw.getStyleClass().add("b-button");
-         edit.getStyleClass().add("b-button");
-         all.getStyleClass().add("b-button");
-         
-         nav.getChildren().addAll(home,nw,edit,all);
-         //navigation bar css id
-         nav.setId("nav");
-         
-         rootP.setTop(nav);
-         initList();
-         showHome();
-         
-         home.setOnAction((e)->
-         {
-             showHome();
-         });
-         all.setOnAction((e)->
-         {
-             showList();
-         });
-         
-    }
-    
-    //show home page
-    private void showHome()
-    {
-        rootP.setCenter(new ScrollPane());
-    }
-    
-    
-    
-    //show list
-    private void showList()
-    {
-        GridPane lst = new GridPane();
-        //create a css id
-        lst.setId("list");
-        //set header
-        lst.add(new Label("NAME"), 0, 0);
-        lst.add(new Label("WORK ID"), 1, 0);
-        lst.add(new Label("NATIONAL ID"), 2, 0);
-        lst.add(new Label("E-MAIL"), 3, 0);
-        lst.add(new Label("CELLPHONE"), 4, 0);
-        lst.add(new Label("GENDER"), 5, 0);
-        lst.add(new Label("DEPARTMENT"), 6, 0);
-        lst.add(new Label("FACULTY"), 7, 0);
+        nav.getChildren().addAll(xb,cb,ab,vb,eb);
+        nav.setAlignment(Pos.CENTER);
+
+        nav.setMaxWidth(120);
+        nav.setMinWidth(120);
+        nav.maxWidthProperty().bind(rootP.widthProperty().multiply(0.0));
+        rootP.getItems().addAll(nav, bPane);
         
-        int row = 1;
-        ReadOnly ro = null;
-        for(String id : list.keySet())
-        {
-            ro = list.get(id);
-            lst.add(ro.getName(), 0, row);
-            lst.add(ro.getWorkId(), 1, row);
-            lst.add(ro.getNationalId(), 2, row);
-            lst.add(ro.getAddress(), 3, row);
-            lst.add(ro.getCellPhone(), 4, row);
-            lst.add(ro.getGender(), 5, row);
-            lst.add(ro.getDepartment(), 6, row);
-            lst.add(ro.getFacultyLabel(), 7, row);
-            ++row;
+        //event listeners
+        addEventListeners(cb, xb, eb, vb, ab);
+    }
+    
+    //add event listeners
+    private void addEventListeners(final ChatButton c,final ExploreButton ex,
+           final EventsButton ev, final VideoCallButton v,final AudioCallButton a)
+    {
+        //add event listeners to the toggle buttons
+        //keep the buttons in a toggle group
+        ToggleGroup group = new ToggleGroup();
+        group.getToggles().addAll(c,ex,ev,v,a);
+        
+        //load chat interface
+        c.setOnAction((e)->{
+            //get the content pane pointed to by this toggle button
+            //set it as the content pane
+            setContent(c.getChatPane());
+        });
+        
+        //explorer button action
+        ex.setOnAction((e)->{
+            //set the list explorer
+            setContent(new Pane());
+        });
+        
+        //events / news feed interface
+        ev.setOnAction((e)->{
+            //switch to the events pane
+            setContent(new Pane());
+        });
+        
+        //video call
+        v.setOnAction((e)->{
+            setContent(new Pane());
+        });
+        
+        //audio call
+        a.setOnAction((e)->{
+            setContent(new Pane());
+        });
+        
+        //handle a toggle change event
+        group.selectedToggleProperty().addListener(this::switched);
+        ex.setSelected(true);
+    }
+    
+    private void switched(ObservableValue<? extends Toggle> observable,
+            Toggle oB, Toggle nB)
+    {
+        if(nB != null){
+            //change style
+            ((ToggleButton)nB).setStyle("-fx-background-color:a0c0c0; "
+                    + "-fx-text-fill : #222");
         }
-        
-        ScrollPane sp = new ScrollPane();
-        lst.setAlignment(Pos.CENTER);
-        sp.setContent(lst);
-        
-        rootP.setCenter(sp);
-    } 
-}
+        if(oB != null){
+            ((ToggleButton)oB).setStyle("-fx-background-color:c0c0c0; "
+                    + "-fx-text-fill : green");
+        }
+    }
+    
+    //set content pane
+    private void setContent(Node node)
+    {
+        bPane.setCenter(node);
+    }
+
+}//Home class
