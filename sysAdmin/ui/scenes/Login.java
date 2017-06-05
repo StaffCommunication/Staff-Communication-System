@@ -8,23 +8,28 @@
 
 package sysadmin.ui.scenes;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.PipedInputStream;
+import java.util.Arrays;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.GridPane;
-
 import org.json.simple.JSONObject;
 
-import sysadmin.net.Connector;
+
+import sysadmin.net.msg.Base64Utils;
 import sysadmin.net.msg.Message;
 import sysadmin.net.msg.MessageType;
+import sysadmin.ui.UIManager;
 
 
 //the login scene has a grid pane
 //the grid pane has two fields: username and password
-//a 'GO' button is also provided
+//a 'LOG IN' button is also provided
 
 public class LogIn extends Scene {
     
@@ -35,23 +40,26 @@ public class LogIn extends Scene {
     private final PasswordField pwd;
     //log in button
     private final Button submit;
-    //connector
-    private Connector connector;
     
-    public LogIn(GridPane g, Button b, Connector c)
+    //in put stream
+    private PipedInputStream in;
+    
+    
+    public LogIn(GridPane g,Button b)
     {
         //use base class to set size and layout manager
-        super(g,600,600);
-        //initialize grid
+        super(g,1000,600);
+        //initialize
         grid = g;
-        //initialize connector
-        connector = c;
-        //initialize button, user name and pwd attr
+        in = new PipedInputStream();
         adminID = new TextField();
         pwd = new PasswordField();
         submit = b;
         //css id
         submit.setId("submit");
+        
+        //connect streams
+        UIManager.createPipe("app", in);
     }
     
     //set up log in ui
@@ -71,6 +79,8 @@ public class LogIn extends Scene {
         grid.setId("login-grid");
         
         //adminID.setPromptText("admin user id");
+        pwd.getStyleClass().add("text-field");
+        adminID.getStyleClass().add("text-field");
        
     }
     
@@ -82,12 +92,43 @@ public class LogIn extends Scene {
         jo.put("user", adminID.getText());
         jo.put("pwd", pwd.getText());
         
-        //send the data to server ==> message is of type REG
-        connector.send(
-                new Message(MessageType.REG,adminID.getText(),"server",jo.toJSONString()));
+        //log in data
+        Message msg = new Message(MessageType.REG,adminID.getText(),
+                "db",Base64Utils.encode(jo.toJSONString()));
         
+        //send to Sender worker
+        UIManager.sendToWorker("sender", msg);
+        
+        //wait for response
+        ByteArrayOutputStream response = recvRes();
+
+        //clear inputs
+        adminID.clear();
+        pwd.clear();
         //wait to server response
-        return connector.recv();
+        //return connector.recv();
+        return new Message(response.toString());
+    }
+    
+    //receive response
+    private ByteArrayOutputStream recvRes()
+    {
+        ByteArrayOutputStream bStream = new ByteArrayOutputStream();
+        byte[] buff = new byte[8*1024];//8kb
+        
+        while(true)
+        {
+            Arrays.fill(buff,0,buff.length,(byte)0);
+            try {
+                 int n = in.read(buff, 0, buff.length);
+                 if(n <= 0) break;
+                 //write to byte stream
+                 bStream.write(buff, 0, n);
+            } catch (IOException e) {
+                //do nothing
+            }
+        }
+        return bStream;
     }
     
 }
