@@ -1,1 +1,0 @@
-media functionalities implemented here.
