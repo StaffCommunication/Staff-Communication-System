@@ -1,0 +1,15 @@
+#menu{
+    -fx-text-alignment: right;
+    
+}
+#textField{
+    -fx-background-image:url("/images/icons/basics-19-64.png");
+    -fx-background-size:50 50;
+    -fx-background-repeat:no-repeat;
+    -fx-background-position:right;
+    -fx-font-size:15;
+    
+}
+.label{
+    -fx-padding:10 0 10 0;
+}
