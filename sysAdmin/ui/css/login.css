@@ -4,8 +4,10 @@
     -fx-alignment: CENTER;
     -fx-hgap: 20px;
     -fx-vgap: 13px;
-    -fx-background: #666;
-    -fx-text-fill: #ddd;
+    -fx-background: #004040;
+    -fx-text-fill: #c0c0c0;
+    -fx-font-family : "Arial";
+    -fx-font-spacing : 5px;
 }
 
 #submit {
@@ -19,3 +21,14 @@
     -fx-text-fill: silver;
 }
 
+.text-field
+{
+    -fx-background-color: inherit;
+    -fx-text-fill: silver;
+    -fx-border-style: solid;
+    -fx-border-color: silver;
+    -fx-border-width: 0px 0px 2px 0px;
+    -fx-font-size: 15px;
+    -fx-font-spacing : 5px;
+    -fx-font-family : "Arial";
+}
