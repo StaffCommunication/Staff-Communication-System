@@ -2,28 +2,25 @@
 package scsserver.net;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.PipedOutputStream;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.HashMap;
+import javafx.application.Platform;
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.SSLSocket;
-import org.apache.commons.codec.digest.DigestUtils;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
+
 
 import scsserver.db.DB;
 import scsserver.db.DbWorker;
 import scsserver.net.msg.Message;
+import scsserver.net.msg.MessageType;
 import scsserver.staff.Worker;
+import scsserver.ui.UIManager;
 
 
 //import db.DBUtils;
 
-public class Acceptor {
+public class Acceptor extends Thread {
     //server port
     private final int PORT = 8888;
     //secure socket
@@ -35,9 +32,6 @@ public class Acceptor {
     //requests for staff B
     //this thread will then forward the data to staff B's PC
     private static HashMap<String,PipedOutputStream> ipcStreams;
-    
-    //keep a mapping of staffIds and passwords ==> encrypted using SHA512
-    private final  HashMap<String,String> shadow;
     
     //a database connection
     private final DB dbCon;
@@ -55,23 +49,41 @@ public class Acceptor {
         
         //initialize database connection
         dbCon = connection;
-        //init shadow
-        shadow = new HashMap<>();
+    }
+    
+    //handle client connect requests
+    @Override
+    public void run()
+    {
+        //initialize ipcStreams
+        //its a static variable
+        Acceptor.ipcStreams = new HashMap<>();
+        
+        //start datadase worker
+        startDbHandler();
+        serveForever();
     }
     
     //connect to database
-    private boolean connectToDB()
+    public boolean connectToDB()
     {
         //if connected to db, initialize client authentication details
+        UIManager.log("creating a database connection");
         if(dbCon.connect())
         {
-            return initCredentials();
+            return true;
         }
         return false;
     }
     
+    //listening port
+    public int getPort()
+    {
+        return PORT;
+    }
+    
     //start server
-    public boolean start()
+    public boolean startServer()
     {
         try
         {
@@ -84,8 +96,9 @@ public class Acceptor {
             sSocket.setEnabledCipherSuites(Acceptor.ciphers);
             //if we made it this far, our server is running
             
-            //connect to db
-            return connectToDB();
+            //log
+            UIManager.log("server started, listening on port " + getPort());
+            return true;
         }
         catch(IOException e){
             Acceptor.setLastError(e.getMessage());
@@ -99,41 +112,16 @@ public class Acceptor {
         return (SSLServerSocketFactory) SSLServerSocketFactory.getDefault();
     }
     
-    //initialize staff accounts' authentication details
-    private boolean initCredentials()
-    {
-        //initialize staff credentials using the table scs.shadow
-        ResultSet cred = dbCon.query("SELECT * FROM shadow");
-        
-        if(cred != null)
-        {
-            while(true)
-            {
-                try {
-                    if(!cred.next()) break;
-                    shadow.put(cred.getString(1),cred.getString(2));
-                } catch (SQLException e) {
-                     //set last error
-                     Acceptor.setLastError(e.getMessage());
-                     break;
-                }
-            }//while
-            //credentials initialized
-            return true;
-        }//if
-        return false;
-    }
-    
     //start db queries handler
     private void startDbHandler()
     {
-        //create an output stream
-        PipedOutputStream toDb = new PipedOutputStream();
+        //log
+        Platform.runLater(()->{
+            UIManager.log("starting database requests handler");
+        });
+
         //create handler
-        DbWorker dw = new DbWorker(dbCon, toDb);
-        //add out put stream to map
-        Acceptor.add(toDb, "db");
-        
+        DbWorker dw = new DbWorker(dbCon, new PipedOutputStream());
         //start worker
         dw.start();
     }
@@ -141,9 +129,11 @@ public class Acceptor {
     //server client connect requests forever
     public void serveForever()
     {
-        //initialize ipcStreams
-        //its a static variable
-        Acceptor.ipcStreams = new HashMap<>();
+        
+        Platform.runLater(()->{
+            UIManager.log("server ready to accept client connection requests");
+            UIManager.log("------------------------------------------------------\n");
+        });
         
         //client socket
         SSLSocket cSocket;
@@ -155,14 +145,12 @@ public class Acceptor {
             try{
                 //accept() client connect() request
                 cSocket = (SSLSocket) sSocket.accept();
-                
-                //authenticate and register staff / client on the server
-                String wId = authendicate(cSocket.getInputStream());
-                if(wId != null)
-                {
-                    //create a client handler
-                    startNewWorker(cSocket, wId);
-                }
+
+                UIManager.log("received connection from [ " + 
+                        cSocket.getInetAddress().getHostAddress() + " ," +
+                        cSocket.getPort() + " ]");
+                //start handler
+                startNewWorker(cSocket);
             } catch (IOException e) {
                 //set last error
                 Acceptor.setLastError(e.getMessage());
@@ -170,69 +158,28 @@ public class Acceptor {
             }
         }
     }
-    
-    //authendicate client / staff / admin
-    //return work id
-    private String authendicate(InputStream in)
+
+    //release resources
+    public void release()
     {
-        //get credentials from user
-        byte[] cred = new byte[1024];
-        try 
-        {
-            in.read(cred, 0, cred.length);
-            Message msg = new Message(new String(cred));
-            
-            //get the pay load
-            if(inShadow(msg.getPayload()))
-            {
-                return msg.getSrc();
-            }
-        } catch (Exception e) {
-            //set last error
-            Acceptor.setLastError(e.getMessage());
-        }
-        return null;
-    }
-    
-    //check whether client credentials are in the shadow db table
-    //after starting the server, the hashmap shadow is initialized to the contents
-    //of the table scs.shadow
-    //we will use this hashmap to auth client
-    private boolean inShadow(String jsonString)
-    {
-        //create json object
-        JSONParser p = new JSONParser();
-        boolean found = false;//match found
         try {
-            JSONObject jo = (JSONObject) p.parse(jsonString);
-            //keys and values of shadow are hashed using SHA2
-            String nmHash = DigestUtils.sha256Hex(jo.get("user").toString());
-            String pwdHash = DigestUtils.sha256Hex(jo.get("pwd").toString());
-            
-            if(shadow.containsKey(nmHash))
-            {
-                //compare passwords
-                if(shadow.get(nmHash).compareTo(pwdHash) == 0)
-                {
-                    found = true;
-                }
-            }
-        } catch (ParseException e) {
-            Acceptor.setLastError(e.getMessage());
+            sSocket.close();
+            Platform.runLater(()->{
+                UIManager.log("shutting down server");
+            });
+        } catch (Exception e) {
+            Platform.runLater(()->{
+                UIManager.log("error shutting down server");
+            });
         }
-        return found;
+        
     }
     
     //start new worker thread
-    private void startNewWorker(SSLSocket sock, String id)
+    private void startNewWorker(SSLSocket sock)
     {
-        //create a piped output stream
-        PipedOutputStream ps = new PipedOutputStream();
-        //add it to map
-        Acceptor.add(ps, id);
-        
         //create worker 
-        Worker worker = new Worker(sock, ps, id);
+        Worker worker = new Worker(sock,new PipedOutputStream());
         //start worker
         worker.start();
     }
@@ -243,19 +190,84 @@ public class Acceptor {
     {
         //get a stream connected to a thread representing staffName
         //write to it
-        try {
-            ipcStreams.get(message.getDest()).write(
-                    message.toString().getBytes(),0,message.toString().length());
-        } catch (IOException e) {
-             //set last error
-            Acceptor.setLastError(e.getMessage());
+        PipedOutputStream stream = ipcStreams.get(message.getDest());
+        //is the client still connected?
+        if(stream == null)
+        {
+            //change type
+            if(message.getType() == MessageType.FILE)
+                message.setType(MessageType.SAVE_FILE);
+            else if(message.getType() == MessageType.SMS)
+                message.setType(MessageType.SAVE_SMS);
+            else if(message.getType() == MessageType.EVENT)
+                message.setType(MessageType.SAVE_EVENT);
+            
+            toDB(message);
+        }
+        else{
+            if(message.getDest().compareTo("db") == 0)
+                //to db worker
+                toDB(message);
+            else
+                toWorker(message);
         }
     }
     
+    public synchronized static void toDB(Message msg)
+    {
+        PipedOutputStream st = ipcStreams.get("db");
+        synchronized(st)
+        {
+            try {
+                wait(st);
+                st.write((msg.toString() + " END").getBytes());
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+    
+    public synchronized static void toWorker(Message msg)
+    {
+        PipedOutputStream st = ipcStreams.get(msg.getDest());
+        synchronized(st)
+        {
+            try {
+                wait(st);
+                st.write((msg.toString() + " END").getBytes());
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+    public static void wait(PipedOutputStream st)
+    {
+        synchronized(st)
+        {
+            try {
+                st.wait(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+    
+    public static void free(String pName)
+    {
+        PipedOutputStream st = ipcStreams.get(pName);
+        if(st != null)
+            st.notifyAll();
+    }
     //add to ipcstream map
-    private static void add(PipedOutputStream ps, String id)
+    public synchronized static void add(PipedOutputStream ps, String id)
     {
          ipcStreams.put(id,ps);
+    }
+    
+    //remove
+    public synchronized static void remove(String id)
+    {
+        ipcStreams.remove(id);
     }
     
     //reset / set the last error message
