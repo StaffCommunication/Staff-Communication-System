@@ -1,21 +1,21 @@
 
 package sysadmin.ui.menu;
 
-import java.io.PipedOutputStream;
+import java.io.PipedInputStream;
 import javafx.scene.control.ToggleButton;
 
-import sysadmin.ui.workers.ChatWorker;
+import sysadmin.ui.menu.chat.ChatWorker;
 
 //a ChatWork is a pane and a thread at the same time
-public class ChatButton extends ToggleButton
+public class Chat extends ToggleButton
 {
     //a reference to the chat pane
     private final ChatWorker chatWorker;
 
     //constructor
-    public ChatButton(PipedOutputStream pO)
+    public Chat()
     {
-        chatWorker = new ChatWorker(pO);
+        chatWorker = new ChatWorker(new PipedInputStream());
         //set button name
         setText("Chat");
         //setAlignment(Pos.CENTER);
