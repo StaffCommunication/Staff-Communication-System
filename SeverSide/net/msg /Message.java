@@ -3,7 +3,6 @@ package scsserver.net.msg;
 
 //message class
 
-import java.util.Base64;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
@@ -19,25 +18,28 @@ public class Message {
     private String dest;
     //payload / msg data
     private String payload;
+    //name of thread's output stream sending request
+    private String ownr;
     
     //message constructor one
     public Message(
-            MessageType t, String s, String d, String p)
+            MessageType t, String s, String d, String p, String o)
     {
         //initialize
         src = s;
         mType = t;
         dest = d;
         payload = p;
+        ownr = o;
     }
     
     //cunstructor two
     public Message(String buffer)
     {
         //parse json string
-        JSONObject jo = new JSONObject();
+        JSONObject jo;
         JSONParser parser = new JSONParser();
-        
+
         //parse
         try
         {
@@ -48,9 +50,10 @@ public class Message {
             //use type id (a string) to get message type
             mType = MessageType.messageType((String)jo.get("type"));
             payload = jo.get("payload").toString();
+            ownr = jo.get("owner").toString();
         }
         catch(ParseException e){
-            e.printStackTrace();
+            System.out.println(e);
         }
     }
     
@@ -65,6 +68,7 @@ public class Message {
         jObj.put("dest", dest);
         jObj.put("type", mType.id());
         jObj.put("payload", payload);
+        jObj.put("owner", ownr);
         
         //return the json string
         return jObj.toJSONString();
@@ -88,17 +92,30 @@ public class Message {
         return payload;
     }
     
-    //payload is encoded using base 64 scheme
-    //decode and return the actual data
-    public byte [] getData()
+    public String getOwner()
     {
-        Base64.Decoder dec = Base64.getDecoder();
-        return dec.decode(payload);
+        return ownr;
     }
     
     //get the message type
     public MessageType getType()
     {
         return mType;
+    }
+    
+    //setter methods
+    public void setSrc(String s)
+    {
+        src = s;
+    }
+    
+    public void setDest(String s)
+    {
+        dest = s;
+    }
+    
+    public void setType(MessageType mt)
+    {
+        mType = mt;
     }
 }
