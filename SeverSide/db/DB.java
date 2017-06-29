@@ -46,8 +46,8 @@ public class DB {
             }
             catch(ClassNotFoundException e1)
             {
-                //return false;
                 e1.printStackTrace();
+                return false;
             }
             dbCon = DriverManager.getConnection(db, accName,accPwd);
         } catch (SQLException e2)
@@ -61,11 +61,12 @@ public class DB {
     //query db ==> SELECT
     public ResultSet query(String qString)
     {
-        try {
+        try{
             Statement st = dbCon.createStatement();
             //create a result set object and return it
             return st.executeQuery(qString);
         } catch (Exception e) {
+            System.err.println(e.getMessage());
             return null;
         }
     }
@@ -73,12 +74,12 @@ public class DB {
     //insert, update, modify
     public boolean alter(String qString)
     {
-        try {
-            PreparedStatement ps = dbCon.prepareStatement(qString);
+        try(PreparedStatement ps = dbCon.prepareStatement(qString))
+        {
             try {
                 //execute sql statement
                 int status = ps.executeUpdate();
-                if(status >= 0)//query not executed successfully
+                if(status >= 0)//query executed successfully
                     return true;
                 return false;
             } catch (SQLException e) {
