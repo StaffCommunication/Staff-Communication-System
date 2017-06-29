@@ -9,11 +9,11 @@ import javafx.scene.control.ToggleButton;
 ** to send event updates to all staff members
 */
 
-public class EventsButton extends ToggleButton
+public class Events extends ToggleButton
 {
     
     //define constructor
-    public EventsButton()
+    public Events()
     {
         //set button name
         setText("Events");
