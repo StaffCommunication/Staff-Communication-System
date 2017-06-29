@@ -1,6 +1,7 @@
 
 package scsserver.db;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
@@ -8,10 +9,18 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
+
+
+import org.apache.commons.codec.digest.DigestUtils;
+import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
+
+
 import scsserver.net.Acceptor;
+import scsserver.net.msg.Base64Utils;
 import scsserver.net.msg.Message;
 import scsserver.net.msg.MessageType;
 
@@ -23,20 +32,23 @@ public class DbWorker extends Thread
     //a database connection
     DB db;
     //i/o streams
-    PipedInputStream in;
+    final PipedInputStream in;
     
     //constructor
-    public DbWorker(DB db, PipedOutputStream out)
+    public DbWorker(DB db,PipedOutputStream out)
     {
         this.db = db;
         //create a pipe
+        in = new PipedInputStream();
         try
         {
-            in = new PipedInputStream(out);
+            in.connect(out);
         }
         catch(IOException e){
             e.printStackTrace();
         }
+        //add pipe to global map
+        Acceptor.add(out,"db");
     }
     
     //override run()
@@ -46,74 +58,203 @@ public class DbWorker extends Thread
         //receive request, process it, return response
         while(true)
         {
-            Message qs = getDbQuery();          
-            //
+            Message qs = recvQuery();
+            
             if(qs != null)
             {
-                //get payload / query infor
-                //getData decodes the payload accordingly
-                String qString = new String(qs.getData());
-                //get type
-                JSONObject query = parseQuery(qString);
-                switch(query.get("query").toString())
+                //if REG message, authendicate client
+                if(qs.getType() == MessageType.REG)
+                    authendicate(qs.getPayload(), qs.getSrc(), qs.getOwner());
+                
+                else if(qs.getType() == MessageType.REQ)//db query
                 {
-                    case "UPDATE":
-                    case "INSERT":
-                    case "ALTER":
-                        if(commit(query.get("string").toString()))
-                        {
-                            //committed successfully
-                            onSuccess(new Message(MessageType.ACK,
-                                    qs.getDest(), qs.getSrc(),"Success"));
-                        }
-                        else
-                            onError(new Message(MessageType.ERROR,
-                                    qs.getDest(), qs.getSrc(),"Error"));
-                        break;
-                    case "SELECT":
-                        ResultSet rs = select(query.get("string").toString());
-                        if(rs == null)//error
-                        {
-                            //send error message to client
-                            onError(new Message(MessageType.ERROR, qs.getDest(), qs.getSrc(),"Error"));
-                        }
-                        else//send results to client
-                            reply(rs, qs.getDest(),qs.getSrc());
-                }
-            }
+                    JSONObject qData = parseQuery(Base64Utils.decode(qs.getPayload()));
+                    switch((String)qData.get("type")){
+                        case "UPDATE":
+                        case "ALTER":
+                        case "INSERT":
+                            //call commit
+                            commit((String)qData.get("query"), qs.getSrc(),qs.getOwner());
+                            break;
+                        case "SELECT":
+                            select((String)qData.get("query"), qs.getSrc(), qs.getOwner());
+                            break;
+                    }//switch
+                }//else if
+                else if(qs.getType() == MessageType.SAVE_EVENT)
+                    saveEvent(qs);
+                else if(qs.getType() == MessageType.SAVE_FILE)
+                    saveFile(qs);
+                else if(qs.getType() == MessageType.SAVE_SMS)
+                    saveSms(qs);
+            }//if
         }
     }
     
     //receive a db query from a thread
-    private Message getDbQuery()
+    public Message recvQuery()
     {
         //read query
+        ByteArrayOutputStream bStream = new ByteArrayOutputStream();
         byte[] q = new byte[8*1024];//8 kb
-        
-        try {
-            in.read(q, 0, q.length);
-            return new Message(new String(q));
-        } catch (IOException e) {
-            return null;
+        //end of stream
+        String EOF;
+
+        while(true)
+        {
+            //clear memory
+            Arrays.fill(q, 0, q.length, (byte)0);
+            try {
+                int n = in.read(q, 0, q.length);
+                EOF = new String(q,n - 3, 3);
+                
+                if(EOF.compareTo("END") == 0){
+                    bStream.write(q, 0, n - 4);
+                    break;
+                }
+                //write to byte stream
+                bStream.write(q, 0, n);
+            } catch (IOException e) {
+                return null;
+            }
         }
+        
+        return new Message(bStream.toString());
     }
     
     //send a SELECT query to db
-    private ResultSet select(String qs)
+    public void select(String qs, String src, String ownr)
     {
-        //get type
-        return db.query(qs);
+        //send query to database
+        ResultSet rSet = db.query(qs);
+        //response
+        Message msg;
+        if(rSet == null)//db query failed
+        {
+            msg = new Message(MessageType.RES_ERROR,"db",src,
+                    Base64Utils.encode("Error"), ownr);
+        }
+        else{
+            try {
+                JSONArray jArray = new JSONArray();
+                ResultSetMetaData rsmd = rSet.getMetaData();
+                //column names
+                ArrayList<String> clmns = new ArrayList<>();
+                int count = rsmd.getColumnCount();
+                
+                //get all column names of all table columns returned
+                for(int i = 1;i <= count; ++i)
+                {
+                    clmns.add(rsmd.getColumnName(i));
+                }
+
+                //build the json array
+                while(rSet.next()){
+                    JSONObject obj = new JSONObject();
+                    
+                    for(String clm : clmns){
+                        //build a json object using the column names as the keys
+                        obj.put(clm, rSet.getString(clm));
+                    }
+                    //add object to array
+                    jArray.add(obj);
+                }
+                
+                msg = new Message(MessageType.RES_RES, "db", src,
+                        Base64Utils.encode(jArray.toJSONString()), ownr);
+            } catch (SQLException e) {
+                //do nothing
+                System.out.println(e);
+                msg = new Message(MessageType.RES_ERROR,"db",src,
+                    Base64Utils.encode("Error"), ownr);
+            }
+        }
+        //send back response
+        Acceptor.forwardToClientHandler(msg);
     }
     
     //send either UPDATE, ALTER or INSERT query to db
-    private boolean commit(String qs)
+    public void commit(String qs, String src, String ownr)
     {
-        return db.alter(qs);
+        //response message
+        Message msg;
+        if(db.alter(qs))
+        {
+            //successfully execute()d either UPDATE,ALTER or INSERT
+            msg = new Message(MessageType.RES_RES, "db", src,
+                    Base64Utils.encode("Success"), ownr);
+        }else{
+            msg = new Message(MessageType.RES_ERROR, "db", src,
+                    Base64Utils.encode("Error"), ownr);
+        }
+        //send back response
+        Acceptor.forwardToClientHandler(msg);
     }
+    
+    
+    //authenticate to server
+    //the payload of an authendication message (REG) is a json object with the structure
+    //{"workId":"user work id", "pwd":"password"}
+    public void authendicate(String pLoad, String src, String ownr)
+    {
+        //the payload is always encoded using Base64 scheme
+        pLoad = Base64Utils.decode(pLoad);
+        JSONParser parser = new JSONParser();
+        JSONObject creds = new JSONObject();//credentials
+        boolean parsed = false;
+        boolean loggedIn = false;
+        try {
+            creds = (JSONObject)parser.parse(pLoad);
+            parsed = true;
+        } catch (ParseException e) {
+            //not parsed
+            System.err.println(e);
+        }
+        
+        //get password corresponding to the workId, match
+        if(parsed){
+            String id = (String)creds.get("workId");
+            String pwd = (String)creds.get("pwd");
+            String type = (String)creds.get("acctype");
+            //get hash values
+            id = DigestUtils.sha256Hex(id);
+            pwd = DigestUtils.sha256Hex(pwd);
+            
+            //query db
+            ResultSet rs = db.query("SELECT acctype,pwd FROM passwd WHERE workid=\""+id+"\"");
+            
+            try{
+                if(rs != null && rs.next()){
+                    //compare
+                    if(pwd.compareTo(rs.getString("pwd")) == 0 && 
+                            type.compareTo(rs.getString("acctype")) == 0){
+                        loggedIn = true;
+                    }
+                }
+            } catch (SQLException e) {
+                System.err.println(e);
+            }
+        }
+        
+        //if logged in, confirm to client else send error message
+        Message msg;
+        if(loggedIn){
+            msg = new Message(MessageType.CONF_CONF, "db", src, 
+                    Base64Utils.encode("Log in successful"), ownr);
+        }
+        else{
+            msg = new Message(MessageType.CONF_ERROR, "db", src, 
+                    Base64Utils.encode("Log in failed"), ownr);
+        }
+        //send back response
+        Acceptor.forwardToClientHandler(msg);
+    }
+    
+    
     
     //process db query string, determine whether is a SELECT
     //, UPDATE, ALTER or INSERT query
-    private JSONObject parseQuery(String qs)
+    public JSONObject parseQuery(String qs)
     {
         //the query string is a json string
         JSONParser p = new JSONParser();
@@ -125,60 +266,31 @@ public class DbWorker extends Thread
         }
     }
     
-    //error
-    private void onError(Message msg)
+    //save file to filesystem, keep a record on the db
+    public void saveSms(Message msg)
     {
-        Acceptor.forwardToClientHandler(msg);
+        String m = Base64Utils.decode(msg.getPayload());
+        String q = "INSERT IGNORE INTO msg(src, dest, delivered, type,message) "
+                + "values(\"" + msg.getSrc() + "\",\"" + msg.getDest() 
+                + "\",\" 0,\"sms\"," + m + "\"";
+        db.alter(q);
     }
     
-    //success
-    private void onSuccess(Message msg)
+    //save a file
+    public void saveFile(Message msg)
     {
-        Acceptor.forwardToClientHandler(msg);
+        
     }
     
-    //reply, in case of a SELECT query
-    private void reply(ResultSet rs, String s, String d)
+    public void saveEvent(Message msg)
     {
-        //column names
-        ArrayList<String> clmns = null;
-        try
-        {
-            ResultSetMetaData rsmd = rs.getMetaData();
-            int n = rsmd.getColumnCount();
-            //create list
-            clmns = new ArrayList<>();
-            for(int i = 0;i < n;++i){
-                clmns.add(rsmd.getCatalogName(i+1));
-            }
+        String eJString = Base64Utils.decode(msg.getPayload());
+        JSONObject event;
+        //parse
+        JSONParser p = new JSONParser();
+        try {
             
-            //create a json object of row no : row values (another json object)
-            JSONObject jo = new JSONObject();//the payload
-            int i = 1;
-            while(rs.next())
-            {
-                jo.put(Integer.toString(i), row(rs, clmns));
-                ++i;
-            }
-        }
-        catch(SQLException e){
-            e.printStackTrace();
+        } catch (Exception e) {
         }
     }
-    
-    //json string representing the contents of a row
-    private String row(ResultSet rs, ArrayList<String> cols)
-    {
-        //json object
-        JSONObject jo = new JSONObject();
-        for(String col : cols)
-        {
-            try {
-                jo.put(col, rs.getString(col));
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
-        }
-        return jo.toJSONString();//a json string
-    }
-}
+}//class DbWorker
