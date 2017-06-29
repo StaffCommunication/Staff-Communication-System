@@ -1,50 +1,229 @@
 
 #main
 {
-    -fx-background-color:#222;
-    -fx-padding : 20px 5px 0px 5px;
-    -fx-spacing: 7px;
+    -fx-background-color : silver;
+    /*-fx-padding : 20px 5px 0px 5px;*/
+    /*-fx-spacing: 7px;*/
+}
+
+#main > .split-pane-divider
+{
+    -fx-pref-width : 0px;
+    /*-fx-background-color : inherit;*/
 }
 
 #nav
 {
-    -fx-background-color : #888;
-    -fx-padding : 5px 20px 0.5px 20px;
-    /*-fx-spacing : 30px;*/
-    /*-fx-background-radius : 4px 7px 0px px;*/
+    -fx-background-color : #3b444b;
 }
 
-.b-button
+#content-pane
 {
-    -fx-text-fill : #000033;
     -fx-background-color : inherit;
+    /*-fx-padding : 20px 0px 20px 30px;*/
+}
+
+
+/******** MENU TOGGLEBUTTONS ************/
+.menu-toggle
+{
+    -fx-background-color : inherit;
+    -fx-text-fill : silver;
+    -fx-padding : 20px 0px 20px 20px;
     -fx-font-size : 16px;
+    -fx-font-family : "Impact";
     -fx-font-weight : bold;
-    -fx-padding : 3px 50px 3px 50px;
-    -fx-border-width : 0px 0px 3px 0px;
-    -fx-border-color : #888;
-    /*-fx-background-radius : 4px;*/
-}
-
-.b-button:hover
-{
-    -fx-text-fill : #712259;
+    -fx-min-width : 120px;
     -fx-border-style : solid;
-    -fx-border-color : #712259;
-    -fx-border-width : 0px 0px 3px 0px;
+    -fx-border-color : silver;
+    -fx-border-width : 3px 0px 0px 0px;
 }
 
-.b-button:focused
+/*.menu-toggle:hover
 {
-    -fx-border-style : solid;
-    -fx-border-color : #000033;
-    -fx-border-width : 0px 0px 3px 0px;
+    -fx-background-color : #a0c0c0;
+    -fx-text-fill : #222;
+}*/
+
+
+/***********CHAT INTERFACE******/
+
+#chat-interface
+{
+    -fx-background-color : #c0c0c0;
 }
 
-#list
+#chat-interface > .split-pane-divider
+{
+    -fx-pref-width : 0px;
+}
+
+.contact
+{
+    -fx-background-color : silver;
+    -fx-text-fill : #004040;
+    -fx-min-width : 200px;
+    -fx-font-size : 14px;
+    -fx-padding : 6px 0px 6px 6px;
+    -fx-font-family : "Courier";
+    -fx-border-color: #004040;
+    -fx-border-width: 0px 0px 2px 0px;
+    -fx-border-style: solid;
+}
+
+#contacts-list
+{
+    -fx-background-color : silver;
+}
+
+/************* NEW STAFF MEMBER INTERFACE **************/
+
+/*.tab-pane
+{
+    -fx-font-size : 16px;
+    -fx-text-fill : green;
+}*/
+
+
+#new-staff-grid
+{
+    -fx-hgap: 40px;
+    -fx-vgap: 10px;
+    -fx-font-size : 13px;
+    -fx-text-fill : #222;
+    -fx-font-fanily : "Arial";
+    -fx-background-color: #ddd;
+    -fx-padding : 40px;
+    -fx-border-style : solid;
+    -fx-border-color : green;
+    -fx-border-width : 0px 0px 0px 10px;
+}
+
+.submit-button
+{
+    -fx-font-size : 13px;
+    -fx-text-fill : green;
+    -fx-font-fanily : "Arial";
+    -fx-background-color: inherit;
+    -fx-padding : 5px 20px 5px 20px;
+    -fx-border-style : solid;
+    -fx-border-color : green;
+    -fx-border-width : 2px;
+    -fx-border-radius: 4px;
+}
+
+.submit-button:hover
+{
+    -fx-border-radius: 0px;
+    -fx-text-fill: silver;
+    -fx-background-color : #3b444b;
+    -fx-border-color : #3b444b;
+    -fx-background-radius: 4px;
+    -fx-border-radius: 4px;
+}
+
+
+.h_tabs
+{
+    /*-fx-padding : 20px 30px 20px 30px;*/
+    -fx-text-fill: #888;
+    -fx-font-family : "Arial";
+    -fx-font-size : 20px;
+    -fx-background-color: silver;
+}
+
+/********* CONTACT LIST *********/
+.contact-list-main
+{
+    -fx-background-color: #fff;
+}
+
+.contact-list-center
+{
+    /*-fx-padding: 0px 30px 0px 30px;*/
+    -fx-alignment: CENTER;
+}
+
+.labl
+{
+    -fx-background-color : #004040;
+    -fx-text-fill : silver;
+    -fx-background-radius : 3px;
+    -fx-border-radius : 3px;
+    -fx-padding : 4px 15px 4px 15px;
+    -fx-align : center;
+    -fx-font-family : "Courier";
+    -fx-font-size : 14px;
+}
+
+
+/************* ACCOUNT INFOR *********/
+
+#logout-button
+{
+    -fx-font-size : 13px;
+    -fx-text-fill : green;
+    -fx-font-fanily : "Courier";
+    -fx-background-color: inherit;
+    -fx-padding : 5px 20px 5px 20px;
+    -fx-border-style : solid;
+    -fx-border-color : green;
+    -fx-border-width : 2px;
+    -fx-border-radius: 4px;
+}
+
+#logout-button:hover
+{
+    -fx-border-radius: 0px;
+    -fx-text-fill: silver;
+    -fx-background-color : #3b444b;
+    -fx-border-color : #3b444b;
+    -fx-background-radius: 4px;
+    -fx-border-radius: 4px;
+}
+
+#user-infor-sp
+{
+    -fx-border-color: #3b444b;
+    -fx-border-style: solid;
+    -fx-border-width: 2px 0px 0px 0px;
+}
+
+#user-infor-sp > .split-pane-divider
+{
+    -fx-pref-width : 0px;
+}
+
+#acc-infor-menu
 {
     -fx-background-color : inherit;
-    -fx-alignment : center;
-    -fx-hgap : 15px;
-    -fx-vgap : 15px;
+    -fx-padding : 30px;
 }
+
+.profile-toggle
+{
+    -fx-background-color: inherit;
+    -fx-font-family: "Courier";
+    -fx-font-size : 18px;
+    -fx-text-fill: #004040;
+    -fx-border-style : solid;
+    -fx-border-color : silver;
+    -fx-border-width : 0px 0px 2px 0px;
+}
+
+.profile-toggle:hover
+{
+    -fx-border-color : #004040;
+}
+
+
+/********* EXPLORE ********/
+.table-col-hrd
+{
+    -fx-font-size : 14px;
+    -fx-font-family : "Georgia";
+    -fx-text-fill: #004040;
+}
+
+
+
